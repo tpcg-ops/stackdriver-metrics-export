@@ -30,6 +30,8 @@ import config
 import random
 import string
 import re
+from google.auth import default
+from google_auth_httplib2 import AuthorizedHttp
 
 # logging.basicConfig(level=logging.DEBUG)
 
@@ -91,17 +93,23 @@ def publish_metrics(msg_list):
     using the googleapiclient to publish a message to Pub/Sub.
     The token and batch_id are included as attributes
     """
+    print("publish_metrics")
+    print(msg_list)
     if len(msg_list) > 0:
-        http = httplib2.Http(timeout=60)  # 60초 timeout
-        service = build("pubsub", "v1", http=http, cache_discovery=True)
+        credentials, _ = default()
+        # authed_http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=60))
+        service = build("pubsub", "v1", credentials=credentials, cache_discovery=True)
         topic_path = "projects/{project_id}/topics/{topic}".format(
             project_id=app_identity.get_application_id(), topic=config.PUBSUB_TOPIC
         )
+        print("topic_path: {}".format(topic_path))
         body = {"messages": msg_list}
         logging.debug("pubsub msg is {}".format(body))
+        print("pubsub msg is {}".format(body))
         response = (
             service.projects().topics().publish(topic=topic_path, body=body).execute()
         )
+        print("response is {}".format(response, sort_keys=True, indent=4))
         logging.debug("response is {}".format(response, sort_keys=True, indent=4))
     else:
         logging.debug("No pubsub messages to publish")
@@ -215,11 +223,13 @@ def get_metrics(project_id, next_page_token):
     """Call the https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors/list
     using the googleapiclient to get all the metricDescriptors for the project
     """
-
-    http = httplib2.Http(timeout=60)  # 60초 timeout
-    service = build("monitoring", "v3", http=http, cache_discovery=True)
+    print("get_metrics")
+    credentials, _ = default()
+    # authed_http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=60))
+    service = build("monitoring", "v3", credentials=credentials, cache_discovery=True)
     project_name = "projects/{project_id}".format(project_id=project_id)
     logging.debug(f"project_name: {project_name}")
+    print(f"project_name: {project_name}")
     try:
         metrics = (
             service.projects()
@@ -234,6 +244,9 @@ def get_metrics(project_id, next_page_token):
         raise
 
     logging.debug(
+        "project_id: {}, size: {}".format(project_id, len(metrics["metricDescriptors"]))
+    )
+    print(
         "project_id: {}, size: {}".format(project_id, len(metrics["metricDescriptors"]))
     )
     return metrics
@@ -283,6 +296,7 @@ def get_and_publish_metrics(message_to_publish, metadata):
 
         # Write to pubsub if there is 1 or more
         logging.debug("Start publish_metrics")
+        print("Start publish_metrics")
         publish_metrics(pubsub_msg_list)
 
         # write the list of stats messages to BigQuery
@@ -303,8 +317,9 @@ def get_and_publish_metrics(message_to_publish, metadata):
 def write_stats(stats, stats_project_id, batch_id):
     """Write 3 custom monitoring metrics to the Monitoring API"""
     logging.debug("write_stats: {}".format(json.dumps(stats)))
-    http = httplib2.Http(timeout=60)  # 60초 timeout
-    service = build("monitoring", "v3", http=http, cache_discovery=True)
+    credentials, _ = default()
+    # authed_http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=60))
+    service = build("monitoring", "v3", credentials=credentials, cache_discovery=True)
     project_name = "projects/{project_id}".format(
         project_id=app_identity.get_application_id()
     )
@@ -405,8 +420,9 @@ def write_to_bigquery(json_row_list):
     # logging.debug("write_to_bigquery")
 
     if len(json_row_list) > 0:
-        http = httplib2.Http(timeout=60)  # 60초 timeout
-        bigquery = build("bigquery", "v2", http=http, cache_discovery=True)
+        credentials, _ = default()
+        authed_http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=60))
+        bigquery = build("bigquery", "v2", http=authed_http, cache_discovery=True)
 
         body = {
             "kind": "bigquery#tableDataInsertAllRequest",
@@ -449,9 +465,9 @@ def write_input_parameters_to_bigquery(project_id, metadata, msg):
     https://cloud.google.com/bigquery/docs/reference/rest/v2/tabledata/insertAll
     """
     # logging.debug("write_input_parameters_to_bigquery")
-
-    http = httplib2.Http(timeout=60)  # 60초 timeout
-    bigquery = build("bigquery", "v2", http=http, cache_discovery=True)
+    credentials, _ = default()
+    # authed_http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=60))
+    bigquery = build("bigquery", "v2", credentials=credentials, cache_discovery=True)
 
     body = {
         "kind": "bigquery#tableDataInsertAllRequest",
@@ -510,9 +526,11 @@ def receive_messages_handler():
             raise ValueError("No request data received")
         envelope = json.loads(request.data.decode("utf-8"))
         logging.debug("Raw pub/sub message: {}".format(envelope))
+        print("Raw pub/sub message: {}".format(envelope))
         if "message" not in envelope:
             raise ValueError("No message in envelope")
         if "messageId" in envelope["message"]:
+            print("messageId: {}".format(envelope["message"]["messageId"]))
             logging.debug("messageId: {}".format(envelope["message"]["messageId"]))
         message_id = envelope["message"].get("messageId", "")
         if "publishTime" in envelope["message"]:
@@ -520,8 +538,10 @@ def receive_messages_handler():
         if "data" not in envelope["message"]:
             raise ValueError("No data in message")
         payload = base64.b64decode(envelope["message"]["data"])
+        print("payload: {}".format(payload))
         logging.debug("payload: {} ".format(payload))
         data = json.loads(payload.decode("utf-8"))
+        print("data: {}".format(data))
         logging.debug("data: {} ".format(data))
         # Add any of the parameters to the pubsub message to send
         message_to_publish = {}
@@ -643,3 +663,7 @@ def receive_messages_handler():
         ret_val = str(e)
         ret_code = 500
     return Response(ret_val, status=ret_code, mimetype="text/plain")
+
+
+# if __name__ == "__main__":
+#     app.run(host="127.0.0.1", port=8080, debug=True)

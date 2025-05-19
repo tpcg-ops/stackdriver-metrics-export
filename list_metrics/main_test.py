@@ -57,7 +57,9 @@ def test_incorrect_aggregation_alignment_period_post(app, client):
     """Test sending incorrect aggregation_alignment_period as input"""
     request = build_request(aggregation_alignment_period="12")
     response = client.post(
-        "/push-handlers/receive_messages", data=json.dumps(request).encode("utf-8"), headers=headers
+        "/push-handlers/receive_messages",
+        data=json.dumps(request).encode("utf-8"),
+        headers=headers,
     )
     assert response.status_code == 500
     assert (
@@ -67,7 +69,9 @@ def test_incorrect_aggregation_alignment_period_post(app, client):
 
     request = build_request(aggregation_alignment_period="12s")
     response = client.post(
-        "/push-handlers/receive_messages", data=json.dumps(request).encode("utf-8"), headers=headers
+        "/push-handlers/receive_messages",
+        data=json.dumps(request).encode("utf-8"),
+        headers=headers,
     )
     assert response.status_code == 500
     assert (
@@ -96,7 +100,9 @@ def test_incorrect_token_post(app, client):
         "Content-Type": mimetype,
         "Accept": mimetype,
     }
-    response = client.post("/push-handlers/receive_messages", data=json.dumps(request), headers=headers)
+    response = client.post(
+        "/push-handlers/receive_messages", data=json.dumps(request), headers=headers
+    )
     assert response.status_code == 500
 
 
