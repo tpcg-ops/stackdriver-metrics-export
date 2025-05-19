@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+import httplib2
 from flask import Flask, Response, request
 from google.appengine.api import wrap_wsgi_app
 from google.appengine.api import app_identity
@@ -91,7 +92,8 @@ def publish_metrics(msg_list):
     The token and batch_id are included as attributes
     """
     if len(msg_list) > 0:
-        service = build("pubsub", "v1", cache_discovery=True)
+        http = httplib2.Http(timeout=60)  # 60초 timeout
+        service = build("pubsub", "v1", http=http, cache_discovery=True)
         topic_path = "projects/{project_id}/topics/{topic}".format(
             project_id=app_identity.get_application_id(), topic=config.PUBSUB_TOPIC
         )
@@ -214,15 +216,22 @@ def get_metrics(project_id, next_page_token):
     using the googleapiclient to get all the metricDescriptors for the project
     """
 
-    service = build("monitoring", "v3", cache_discovery=True)
+    http = httplib2.Http(timeout=60)  # 60초 timeout
+    service = build("monitoring", "v3", http=http, cache_discovery=True)
     project_name = "projects/{project_id}".format(project_id=project_id)
-
-    metrics = (
-        service.projects()
-        .metricDescriptors()
-        .list(name=project_name, pageSize=config.PAGE_SIZE, pageToken=next_page_token)
-        .execute()
-    )
+    logging.debug(f"project_name: {project_name}")
+    try:
+        metrics = (
+            service.projects()
+            .metricDescriptors()
+            .list(
+                name=project_name, pageSize=config.PAGE_SIZE, pageToken=next_page_token
+            )
+            .execute()
+        )
+    except Exception as e:
+        logging.error(f"Error in metricDescriptors().list().execute(): {e}")
+        raise
 
     logging.debug(
         "project_id: {}, size: {}".format(project_id, len(metrics["metricDescriptors"]))
@@ -294,7 +303,8 @@ def get_and_publish_metrics(message_to_publish, metadata):
 def write_stats(stats, stats_project_id, batch_id):
     """Write 3 custom monitoring metrics to the Monitoring API"""
     logging.debug("write_stats: {}".format(json.dumps(stats)))
-    service = build("monitoring", "v3", cache_discovery=True)
+    http = httplib2.Http(timeout=60)  # 60초 timeout
+    service = build("monitoring", "v3", http=http, cache_discovery=True)
     project_name = "projects/{project_id}".format(
         project_id=app_identity.get_application_id()
     )
@@ -395,7 +405,8 @@ def write_to_bigquery(json_row_list):
     # logging.debug("write_to_bigquery")
 
     if len(json_row_list) > 0:
-        bigquery = build("bigquery", "v2", cache_discovery=True)
+        http = httplib2.Http(timeout=60)  # 60초 timeout
+        bigquery = build("bigquery", "v2", http=http, cache_discovery=True)
 
         body = {
             "kind": "bigquery#tableDataInsertAllRequest",
@@ -439,7 +450,8 @@ def write_input_parameters_to_bigquery(project_id, metadata, msg):
     """
     # logging.debug("write_input_parameters_to_bigquery")
 
-    bigquery = build("bigquery", "v2", cache_discovery=True)
+    http = httplib2.Http(timeout=60)  # 60초 timeout
+    bigquery = build("bigquery", "v2", http=http, cache_discovery=True)
 
     body = {
         "kind": "bigquery#tableDataInsertAllRequest",
@@ -548,9 +560,9 @@ def receive_messages_handler():
                     aggregation_alignment_period
                 )
             )
-        message_to_publish[
-            "aggregation_alignment_period"
-        ] = aggregation_alignment_period
+        message_to_publish["aggregation_alignment_period"] = (
+            aggregation_alignment_period
+        )
         # get the App Engine default bucket name to store a GCS file with last end_time
         bucket_name = os.environ.get(
             "BUCKET_NAME", app_identity.get_default_gcs_bucket_name()
