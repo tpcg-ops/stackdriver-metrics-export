@@ -1,5 +1,5 @@
 {
-    "PROJECTS_TOPIC" : "projects/tpcg-ark-ai/topics/metrics_export_start",
+    "PROJECTS_TOPIC" : "projects/YOUR_PROJECT_ID/topics/metrics_export_start",
   	"TOKEN": "db3324d5-fcc8-4a3c-9ec7-cc2d4e55cad6",
     "ACTIVE": "ACTIVE",
     "METRIC_EXPORT_PUBSUB_VERIFICATION_TOKEN": "9110614f-ce4a-4a80-a2c8-01f681859954"

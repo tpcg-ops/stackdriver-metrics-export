@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PUBSUB_VERIFICATION_TOKEN = '16b2ecfb-7734-48b9-817d-4ac8bd623c87'
+PUBSUB_VERIFICATION_TOKEN = '9110614f-ce4a-4a80-a2c8-01f681859954'
 PUBSUB_TOPIC="metrics_for_bigquery"
 BIGQUERY_DATASET='metric_export'
 BIGQUERY_TABLE='sd_metrics_export_fin'
