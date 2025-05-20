@@ -36,6 +36,7 @@ def build_rows(timeseries, metadata):
     if there is more than 1 point in the timeseries
     """
     logging.debug("build_row")
+    print("build_row")
     rows = []
 
     # handle >= 1 points, potentially > 1 returned from Monitoring API call
@@ -99,6 +100,7 @@ def build_rows(timeseries, metadata):
         row_to_insert["json"] = row
         rows.append(row_to_insert)
         logging.debug("row: {}".format(json.dumps(row, sort_keys=True, indent=4)))
+        print("row: {}".format(json.dumps(row, sort_keys=True, indent=4)))
 
     return rows
 
@@ -115,6 +117,11 @@ def get_labels(timeseries, label_name):
             metric_label["value"] = timeseries[label_name][label]
             metric_labels_list.append(metric_label)
     logging.debug(
+        "get_labels: {}".format(
+            json.dumps(metric_labels_list, sort_keys=True, indent=4)
+        )
+    )
+    print(
         "get_labels: {}".format(
             json.dumps(metric_labels_list, sort_keys=True, indent=4)
         )
@@ -220,6 +227,11 @@ def build_distribution_value(value_json):
             json.dumps(distribution_value, sort_keys=True, indent=4)
         )
     )
+    print(
+        "created the distribution_value: {}".format(
+            json.dumps(distribution_value, sort_keys=True, indent=4)
+        )
+    )
     return distribution_value
 
 
@@ -243,6 +255,7 @@ def build_bigquery_stats_message(metadata):
     }
     json_msg = {"json": bq_msg}
     logging.debug("json_msg {}".format(json.dumps(json_msg, sort_keys=True, indent=4)))
+    print("json_msg {}".format(json.dumps(json_msg, sort_keys=True, indent=4)))
     return json_msg
 
 
@@ -251,6 +264,7 @@ def write_stats_to_bigquery(json_row_list):
     https://cloud.google.com/bigquery/docs/reference/rest/v2/tabledata/insertAll
     """
     logging.debug("write_stats_to_bigquery")
+    print("write_stats_to_bigquery")
 
     bigquery = build("bigquery", "v2", cache_discovery=True)
 
@@ -260,6 +274,7 @@ def write_stats_to_bigquery(json_row_list):
         "rows": json_row_list,
     }
     logging.debug("body: {}".format(body))
+    print("body: {}".format(body))
 
     response = (
         bigquery.tabledata()
@@ -272,17 +287,21 @@ def write_stats_to_bigquery(json_row_list):
         .execute()
     )
     logging.debug("BigQuery said... = {}".format(response))
+    print("BigQuery said... = {}".format(response))
 
     bq_stats_msgs_with_errors = 0
     if "insertErrors" in response:
         if len(response["insertErrors"]) > 0:
             logging.error("Error: {}".format(response))
+            print("Error: {}".format(response))
             bq_stats_msgs_with_errors = len(response["insertErrors"])
     else:
         logging.debug(
             "By amazing luck, there are no errors, response = {}".format(response)
         )
+        print("By amazing luck, there are no errors, response = {}".format(response))
     logging.debug("bq_stats_msgs_with_errors: {}".format(bq_stats_msgs_with_errors))
+    print("bq_stats_msgs_with_errors: {}".format(bq_stats_msgs_with_errors))
     return response
 
 
@@ -291,6 +310,7 @@ def write_to_bigquery(timeseries, metadata):
     https://cloud.google.com/bigquery/docs/reference/rest/v2/tabledata/insertAll
     """
     logging.debug("write_to_bigquery")
+    print("write_to_bigquery")
 
     response = {}
     json_msg_list = []
@@ -299,6 +319,7 @@ def write_to_bigquery(timeseries, metadata):
         logging.debug(
             "No timeseries data to write to BigQuery for: {}".format(timeseries)
         )
+        print("No timeseries data to write to BigQuery for: {}".format(timeseries))
         msgs_written = 0
         metadata["msg_without_timeseries"] = 1
         error_msg_cnt = 0
@@ -311,6 +332,7 @@ def write_to_bigquery(timeseries, metadata):
             "rows": rows,
         }
         logging.debug("body: {}".format(body, sort_keys=True, indent=4))
+        print("body: {}".format(body, sort_keys=True, indent=4))
 
         response = (
             bigquery.tabledata()
@@ -324,6 +346,7 @@ def write_to_bigquery(timeseries, metadata):
         )
 
         logging.debug("BigQuery said... = {}".format(response))
+        print("BigQuery said... = {}".format(response))
 
         msgs_written = len(rows)
         error_msg_cnt = 0
@@ -331,10 +354,14 @@ def write_to_bigquery(timeseries, metadata):
         if "insertErrors" in response:
             if len(response["insertErrors"]) > 0:
                 logging.error("Error: {}".format(response))
+                print("Error: {}".format(response))
                 error_msg_cnt = len(response["insertErrors"])
                 msgs_written = msgs_written - error_msg_cnt
         else:
             logging.debug(
+                "By amazing luck, there are no errors, response = {}".format(response)
+            )
+            print(
                 "By amazing luck, there are no errors, response = {}".format(response)
             )
 
@@ -355,6 +382,7 @@ def write_to_bigquery(timeseries, metadata):
     stats["msgs_written"] = msgs_written
     stats["msgs_with_errors"] = error_msg_cnt
     logging.info("Stats are {}".format(json.dumps(stats)))
+    print("Stats are {}".format(json.dumps(stats)))
     return response
 
 
@@ -364,12 +392,14 @@ def root():
     Validate the input and then process the message
     """
     logging.debug("received message")
+    print("received message")
 
     try:
         if not request.data:
             raise ValueError("No request data received")
         envelope = json.loads(request.data.decode("utf-8"))
         logging.debug("Raw pub/sub message: {}".format(envelope))
+        print("Raw pub/sub message: {}".format(envelope))
 
         if "message" not in envelope:
             raise ValueError("No message in envelope")
@@ -378,6 +408,7 @@ def root():
             logging.debug(
                 "messageId: {}".format(envelope["message"].get("messageId", ""))
             )
+            print("messageId: {}".format(envelope["message"].get("messageId", "")))
         message_id = envelope["message"]["messageId"]
 
         if "attributes" not in envelope["message"]:
@@ -403,6 +434,7 @@ def root():
             raise ValueError("batch_id missing from request")
         batch_id = envelope["message"]["attributes"]["batch_id"]
         logging.debug("batch_id: {} ".format(batch_id))
+        print("batch_id: {} ".format(batch_id))
 
         if "batch_start_time" in envelope["message"]["attributes"]:
             batch_start_time = envelope["message"]["attributes"]["batch_start_time"]
@@ -418,6 +450,7 @@ def root():
             raise ValueError("No data in message")
         payload = base64.b64decode(envelope["message"]["data"])
         logging.debug("payload: {} ".format(payload))
+        print("payload: {} ".format(payload))
 
         metadata = {
             "batch_id": batch_id,
@@ -428,6 +461,7 @@ def root():
 
         data = json.loads(payload)
         logging.debug("data: {} ".format(data))
+        print("data: {} ".format(data))
 
         # Check the input parameters
         if not data:
@@ -438,6 +472,7 @@ def root():
 
     except Exception as e:
         logging.error("Error: {}".format(e))
+        print("Error: {}".format(e))
         return Response(f"{e}", status=500)
 
     return Response("Ok", status=200)
