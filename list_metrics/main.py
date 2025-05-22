@@ -526,11 +526,9 @@ def receive_messages_handler():
             raise ValueError("No request data received")
         envelope = json.loads(request.data.decode("utf-8"))
         logging.debug("Raw pub/sub message: {}".format(envelope))
-        print("Raw pub/sub message: {}".format(envelope))
         if "message" not in envelope:
             raise ValueError("No message in envelope")
         if "messageId" in envelope["message"]:
-            print("messageId: {}".format(envelope["message"]["messageId"]))
             logging.debug("messageId: {}".format(envelope["message"]["messageId"]))
         message_id = envelope["message"].get("messageId", "")
         if "publishTime" in envelope["message"]:
@@ -538,10 +536,8 @@ def receive_messages_handler():
         if "data" not in envelope["message"]:
             raise ValueError("No data in message")
         payload = base64.b64decode(envelope["message"]["data"])
-        print("payload: {}".format(payload))
         logging.debug("payload: {} ".format(payload))
         data = json.loads(payload.decode("utf-8"))
-        print("data: {}".format(data))
         logging.debug("data: {} ".format(data))
         # Add any of the parameters to the pubsub message to send
         message_to_publish = {}
@@ -647,6 +643,7 @@ def receive_messages_handler():
             write_input_parameters_to_bigquery(project_id, metadata, message_to_publish)
         stats = get_and_publish_metrics(message_to_publish, metadata)
         logging.debug("Stats are {}".format(json.dumps(stats)))
+
         """ Write the late end_time_str to GCS to use in a subsequent run,
         but only if the start_time was not sent in. If the start_time is 
         supplied, then we consider that an ad hoc run, and won't set the
@@ -663,7 +660,3 @@ def receive_messages_handler():
         ret_val = str(e)
         ret_code = 500
     return Response(ret_val, status=ret_code, mimetype="text/plain")
-
-
-# if __name__ == "__main__":
-#     app.run(host="127.0.0.1", port=8080, debug=True)
