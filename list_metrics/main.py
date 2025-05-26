@@ -230,12 +230,16 @@ def get_metrics(project_id, next_page_token):
     project_name = "projects/{project_id}".format(project_id=project_id)
     logging.debug(f"project_name: {project_name}")
     print(f"project_name: {project_name}")
+    filter = 'metric.type = starts_with("compute.googleapis.com")'
     try:
         metrics = (
             service.projects()
             .metricDescriptors()
             .list(
-                name=project_name, pageSize=config.PAGE_SIZE, pageToken=next_page_token
+                name=project_name,
+                pageSize=config.PAGE_SIZE,
+                pageToken=next_page_token,
+                filter=filter,
             )
             .execute()
         )
@@ -252,6 +256,39 @@ def get_metrics(project_id, next_page_token):
     return metrics
 
 
+def get_specific_metrics(project_id, metric_type):
+    print("get_specific_metric")
+    project_name = "projects/{project_id}".format(project_id=project_id)
+    credentials, _ = default()
+    logging.debug(f"project_name: {project_name}")
+    service = build("monitoring", "v3", credentials=credentials, cache_discovery=True)
+
+    print(f"project_name: {project_name}")
+
+    try:
+        metric = (
+            service.projects()
+            .metricDescriptors()
+            .get(name=f"{project_name}/metricDescriptors/{metric_type}")
+            .execute()
+        )
+    except Exception as e:
+        logging.error(f"Error in metricDescriptors().get().execute(): {e}")
+        raise
+    logging.debug(
+        "project_id: {}, metric_type: {}, size: {}".format(
+            project_id, metric_type, len(metric)
+        )
+    )
+    print(
+        "project_id: {}, metric_type: {}, size: {}".format(
+            project_id, metric_type, len(metric)
+        )
+    )
+    return metric
+
+
+# 사실상 메인 로직 함수
 def get_and_publish_metrics(message_to_publish, metadata):
     """Publish the direct JSON results of each metricDescriptor as a separate Pub/Sub message"""
 
